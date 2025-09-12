@@ -2,11 +2,17 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import numpy as np
+import logging
+from typing import List
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load trained Lagos housing model
-print("Loading model...")
+logger.info("Loading model...")
 model = joblib.load("models/housing_model.pkl")
-print("✅ Model loaded successfully.")
+logger.info("✅ Model loaded successfully.")
 
 # Input schema
 class HouseFeatures(BaseModel):
@@ -28,10 +34,10 @@ TOWN_MAP = {
 
 TITLE_CATEGORIES = [
     "Detached Duplex", "Semi-Detached Duplex", "Terraced Duplex",
-    "Bungalow", "Block of Flats", "Penthouse", "Other"  # ✅ Fixed
+    "Bungalow", "Block of Flats", "Penthouse", "Other"
 ]
 
-def one_hot_encode(value: str, categories: list[str]):
+def one_hot_encode(value: str, categories: List[str]):
     encoding = [0] * len(categories)
     try:
         idx = categories.index(value)
@@ -43,19 +49,17 @@ def one_hot_encode(value: str, categories: list[str]):
 @app.post("/predict")
 def predict(features: HouseFeatures):
     try:
-        # Log input
-        print("\n🔎 Incoming Request:")
-        print(features)
+        logger.info(f"🔎 Incoming Request: {features.dict()}")
 
         # Encode town
         town_encoded = TOWN_MAP.get(features.town, 9)
-        print(f"📍 Encoded town '{features.town}' -> {town_encoded}")
+        logger.info(f"📍 Encoded town '{features.town}' -> {town_encoded}")
 
         # One-hot encode title
         title_encoded = one_hot_encode(features.title, TITLE_CATEGORIES)
-        print(f"🏷️ Title one-hot: {title_encoded}")
+        logger.info(f"🏷️ Title one-hot: {title_encoded}")
 
-        # Final feature vector
+        # Build final feature vector
         data = np.array([
             features.bedrooms,
             features.bathrooms,
@@ -65,19 +69,17 @@ def predict(features: HouseFeatures):
             *title_encoded
         ]).reshape(1, -1)
 
-        print(f"🧮 Final feature vector shape: {data.shape}")
-        print(f"🧮 Vector: {data}")
+        logger.info(f"🧮 Final feature vector shape: {data.shape}")
 
-        # Model prediction
+        # Make prediction
         log_pred = model.predict(data)[0]
-        print(f"📊 Raw model prediction (log price): {log_pred}")
+        logger.info(f"📊 Log prediction: {log_pred}")
 
-        # Convert back to original scale
         prediction = np.exp(log_pred)
-        print(f"💰 Final predicted price: {prediction}")
+        logger.info(f"💰 Final predicted price: {prediction}")
 
-        return {"predicted_price": round(float(prediction), 2)}ing 
+        return {"predicted_price": round(float(prediction), 2)}
 
     except Exception as e:
-        print(f"❌ ERROR during prediction: {e}")
-        return {"error": str(e)}
+        logger.error(f"❌ ERROR during prediction: {e}")
+        return {"error": "An error occurred while processing your request."}
