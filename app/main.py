@@ -4,6 +4,7 @@ import joblib
 import numpy as np
 import logging
 from typing import List
+from fastapi.middleware.cors import CORSMiddleware
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +25,15 @@ class HouseFeatures(BaseModel):
     title: str
 
 app = FastAPI(title="Lagos Housing Price Prediction API")
+
+# ✅ Enable CORS (for all origins — safe for testing, restrict later)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # later: ["https://your-frontend.vercel.app"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Encoding dictionaries
 TOWN_MAP = {
@@ -82,4 +92,5 @@ def predict(features: HouseFeatures):
 
     except Exception as e:
         logger.error(f"❌ ERROR during prediction: {e}")
-        return {"error": "An error occurred while processing your request."}
+        # Returning real error for debugging (optional)
+        return {"error": str(e)}
